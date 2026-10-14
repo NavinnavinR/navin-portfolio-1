@@ -1,0 +1,6 @@
+Flask
+Flask-Cors
+Flask-SQLAlchemy
+psycopg[binary]
+gunicorn
+python-dotenv
