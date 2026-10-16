@@ -1,4 +1,4 @@
-
+```python
 import os
 import re
 
@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+from sqlalchemy import text
 
 load_dotenv()
 
@@ -14,13 +15,10 @@ app = Flask(__name__)
 # Database configuration
 database_url = os.getenv("DATABASE_URL", "sqlite:///portfolio.db")
 
+# Render PostgreSQL URL compatibility
 if database_url.startswith("postgres://"):
     database_url = database_url.replace(
-        "postgres://", "postgresql+psycopg://", 1
-    )
-elif database_url.startswith("postgresql://"):
-    database_url = database_url.replace(
-        "postgresql://", "postgresql+psycopg://", 1
+        "postgres://", "postgresql://", 1
     )
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
@@ -29,14 +27,17 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 # Allow requests from your deployed frontend
-frontend_url = os.getenv("FRONTEND_URL", "http://127.0.0.1:5500")
+frontend_url = os.getenv(
+    "FRONTEND_URL",
+    "http://127.0.0.1:5500"
+)
 
 CORS(
     app,
     resources={
         r"/api/*": {
             "origins": [
-                origin.strip()
+                origin.strip().rstrip("/")
                 for origin in frontend_url.split(",")
             ]
         }
@@ -53,12 +54,36 @@ class ContactMessage(db.Model):
     message = db.Column(db.Text, nullable=False)
 
 
-# Health check endpoint
+# Home endpoint
 @app.get("/")
 def home():
     return jsonify({
         "message": "Navin Portfolio API is running"
     })
+
+
+# Health check endpoint
+@app.get("/api/health")
+def health():
+    return jsonify({"status": "ok"}), 200
+
+
+# Database health check endpoint
+@app.get("/api/health/db")
+def health_db():
+    try:
+        db.session.execute(text("SELECT 1"))
+        return jsonify({
+            "status": "ok",
+            "database": "connected"
+        }), 200
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Database health check failed")
+        return jsonify({
+            "status": "error",
+            "database": "disconnected"
+        }), 500
 
 
 # Contact form endpoint
@@ -74,20 +99,17 @@ def submit_contact():
     subject = data.get("subject", "")
     message = data.get("message", "")
 
-    # Validate input types
     if not all(
         isinstance(value, str)
         for value in [name, email, subject, message]
     ):
         return jsonify({"error": "Invalid form data"}), 400
 
-    # Remove extra whitespace
     name = name.strip()
     email = email.strip()
     subject = subject.strip()
     message = message.strip()
 
-    # Validate required fields
     if not all([name, email, subject, message]):
         return jsonify({
             "error": "All fields are required"
@@ -132,10 +154,11 @@ def submit_contact():
         }), 500
 
 
-# Create tables for this starter project
+# Create tables
 with app.app_context():
     db.create_all()
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+```
