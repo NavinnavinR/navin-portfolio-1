@@ -29,7 +29,7 @@ db = SQLAlchemy(app)
 # Allow requests from your deployed frontend
 frontend_url = os.getenv(
     "FRONTEND_URL",
-    "http://127.0.0.1:5500"
+    "https://navin-portfolio-1-1.onrender.com/"
 )
 
 CORS(
